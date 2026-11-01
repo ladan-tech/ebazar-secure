@@ -1,0 +1,31 @@
+# e-bazar — configuration Apache
+Options -Indexes
+DirectoryIndex index.php
+
+# Taille des envois : 5 photos x 200 Kio + champs du formulaire
+<IfModule mod_php.c>
+    php_value upload_max_filesize 1M
+    php_value post_max_size 2M
+    php_value max_file_uploads 20
+    php_flag display_errors off
+    php_flag expose_php off
+</IfModule>
+
+# En-têtes de sécurité pour les fichiers statiques
+# (les pages PHP les envoient elles-mêmes, cf. envoyer_entetes_securite())
+<IfModule mod_headers.c>
+    Header setifempty X-Content-Type-Options "nosniff"
+    Header setifempty X-Frame-Options "DENY"
+    Header always unset X-Powered-By
+</IfModule>
+
+# Fichiers sensibles
+<FilesMatch "\.(?i:sql|md|dist|log|ini|sh|bak|swp)$">
+    Require all denied
+</FilesMatch>
+<Files "router.php">
+    Require all denied
+</Files>
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>

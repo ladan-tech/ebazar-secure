@@ -1,0 +1,12 @@
+<?php
+// Modèle de configuration : à copier en config.php UNIQUEMENT pour une
+// installation manuelle (sinon l'interface web d'installation le génère).
+defined('EBAZAR') or exit;
+
+return [
+    'db_host' => 'localhost',
+    'db_port' => 3306,
+    'db_name' => 'ebazar',
+    'db_user' => 'ebazar',
+    'db_pass' => 'mot_de_passe',
+];

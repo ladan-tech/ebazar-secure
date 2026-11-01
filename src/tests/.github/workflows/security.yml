@@ -1,0 +1,86 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint PHP
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: php -l sur tous les fichiers
+        run: find src -name '*.php' -print0 | xargs -0 -n1 php -l
+
+  pentest:
+    name: Tests d'intrusion automatisés
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_DATABASE: ebazar_test
+          MARIADB_USER: ebazar
+          MARIADB_PASSWORD: ci-password
+          MARIADB_ROOT_PASSWORD: ci-root-password
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, mbstring, gd, fileinfo
+          coverage: none
+      - name: Démarrer l'application
+        run: |
+          PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8000 -t src src/router.php > server.log 2>&1 &
+          for i in $(seq 1 20); do curl -fs -o /dev/null http://127.0.0.1:8000/ && break; sleep 0.5; done
+      - name: Lancer la suite de sécurité
+        env:
+          BASE_URL: http://127.0.0.1:8000
+          APP_DIR: ${{ github.workspace }}/src
+          DB_HOST: 127.0.0.1
+          DB_NAME: ebazar_test
+          DB_USER: ebazar
+          DB_PASS: ci-password
+        run: bash tests/security/run.sh
+      - name: Aucune erreur PHP côté serveur
+        run: '! grep -iE "fatal|warning|deprecated|notice" server.log'
+      - name: Journal du serveur (en cas d'échec)
+        if: failure()
+        run: cat server.log
+
+  secrets:
+    name: Recherche de secrets (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sast:
+    name: Analyse statique (Semgrep)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - name: Règles PHP et OWASP Top 10
+        run: semgrep scan --config p/php --config p/owasp-top-ten --metrics=off src

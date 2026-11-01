@@ -1,0 +1,11 @@
+# Le mot de passe d'exemple de l'installation manuelle est documenté et public
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Valeurs d'exemple et de test documentées"
+paths = [
+  '''src/sql/donnees_initiales\.sql''',
+  '''tests/security/run\.sh''',
+  '''\.github/workflows/security\.yml''',
+]
